@@ -4,7 +4,6 @@ use std::{collections::HashMap, env};
 pub enum AuthMode {
 	NoAuth = 0x00,
 	LoginPassword = 0x01,
-	NoHave = 0x02,
 }
 
 #[derive(Clone)]

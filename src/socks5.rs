@@ -30,7 +30,7 @@ enum Sock5AuthMethods {
 	//o  X'00' NO AUTHENTICATION REQUIRED
 	NoAuth = 0x00,
 	//o  X'01' GSSAPI
-	GSSAPI = 0x01,
+	//GSSAPI = 0x01,
 	//o  X'02' USERNAME/PASSWORD
 	UserPassword = 0x02,
 	//o  X'03' to X'7F' IANA ASSIGNED
@@ -40,16 +40,22 @@ enum Sock5AuthMethods {
 	//o  X'FF' NO ACCEPTABLE METHODS
 }
 
-struct Sock5 {
+pub struct Sock5 {
 	stream: TcpStream,
 }
 
+impl Drop for Sock5 {
+	fn drop(&mut self) {
+		let _ = self.stream.shutdown();
+	}
+}
+
 impl Sock5 {
-	fn new(&self, mut stream: TcpStream) -> Self {
+	pub fn new(stream: TcpStream) -> Self {
 		Self { stream }
 	}
 
-	pub fn check_client_version(&self, version: u8, command: u8) -> bool {
+	fn check_client_version(&self, version: u8, command: u8) -> bool {
 		if version != SOCKET_VERSION || command <= 0 {
 			return false;
 		}
@@ -98,9 +104,6 @@ impl Sock5 {
 				}
 				Err(Error::new(std::io::ErrorKind::PermissionDenied, "Wrong user/password"))
 			}
-			crate::auth::AuthMode::NoHave => {
-				Err(Error::new(std::io::ErrorKind::NotFound, "No have auth methods"))
-			}
 		};
 	}
 
@@ -145,7 +148,7 @@ impl Sock5 {
 		match tokio::io::copy_bidirectional(&mut self.stream, &mut remote_stream).await {
 			Err(e) if e.kind() == std::io::ErrorKind::NotConnected => Ok(()),
 			Err(e) => Err(Error::new(std::io::ErrorKind::NotConnected, e)),
-			Ok((_s_to_t, t_to_s)) => Ok(()),
+			Ok((_, _)) => Ok(()),
 		}
 	}
 }
