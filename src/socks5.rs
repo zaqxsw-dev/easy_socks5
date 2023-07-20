@@ -108,7 +108,7 @@ impl Sock5 {
 
 	async fn get_remote_addr_port(&mut self) -> Result<(String, u16)> {
 		let mut buffer = [0u8; 257];
-		let n = self.stream.read_exact(&mut buffer).await.unwrap();
+		let n = self.stream.read_exact(&mut buffer).await?;
 
 		if self.check_client_version(buffer[0], buffer[1]) {
 			panic!("Wrong version of proxy client");
@@ -121,7 +121,7 @@ impl Sock5 {
 				}
 				Sock5AddressType::DOMAIN => {
 					let len = buffer[4] as usize;
-					let domain = std::str::from_utf8(&buffer[5..5 + len]).unwrap();
+					let domain = std::str::from_utf8(&buffer[5..5 + len])?;
 					domain.to_string()
 				}
 				Sock5AddressType::IPv6 => {
@@ -144,7 +144,7 @@ impl Sock5 {
 	pub async fn create_destination_connection(&mut self) -> Result<()> {
 		let (remote_addr, remote_port) = self.get_remote_addr_port().await?;
 		let mut remote_stream =
-			TcpStream::connect(format!("{}:{}", remote_addr, remote_port)).await.unwrap();
+			TcpStream::connect(format!("{}:{}", remote_addr, remote_port)).await?;
 
 		self.stream
 			.write_all(&[0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
