@@ -1,11 +1,10 @@
+use anyhow::Result;
 use std::io::Error;
 use std::net::Ipv6Addr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 const SOCKET_VERSION: u8 = 0x05;
-
-enum Sock5Commands {}
 
 enum Sock5AddressType {
 	IPv4,
@@ -107,7 +106,7 @@ impl Sock5 {
 		};
 	}
 
-	async fn get_remote_addr_port(&mut self) -> Result<(String, u16), Error> {
+	async fn get_remote_addr_port(&mut self) -> Result<(String, u16)> {
 		let mut buffer = [0u8; 257];
 		let n = self.stream.read_exact(&mut buffer).await.unwrap();
 
@@ -126,17 +125,23 @@ impl Sock5 {
 					domain.to_string()
 				}
 				Sock5AddressType::IPv6 => {
-					let slice: [u8; 16] = (&buffer[4..20]).try_into().unwrap();
+					let slice: [u8; 16] = (&buffer[4..20]).try_into()?;
 					Ipv6Addr::from(slice).to_string()
 				}
 			},
-			Err(_) => panic!("Unsupported address  type"),
+			Err(_) => {
+				return Err(Error::new(
+					std::io::ErrorKind::InvalidData,
+					"Addr type byte not found",
+				)
+				.into());
+			}
 		};
 		let remote_port = u16::from_be_bytes([buffer[n - 2], buffer[n - 1]]);
 		return Ok((remote_addr, remote_port));
 	}
 
-	pub async fn create_destination_connection(&mut self) -> Result<(), Error> {
+	pub async fn create_destination_connection(&mut self) -> Result<()> {
 		let (remote_addr, remote_port) = self.get_remote_addr_port().await?;
 		let mut remote_stream =
 			TcpStream::connect(format!("{}:{}", remote_addr, remote_port)).await.unwrap();
@@ -147,7 +152,7 @@ impl Sock5 {
 
 		match tokio::io::copy_bidirectional(&mut self.stream, &mut remote_stream).await {
 			Err(e) if e.kind() == std::io::ErrorKind::NotConnected => Ok(()),
-			Err(e) => Err(Error::new(std::io::ErrorKind::NotConnected, e)),
+			Err(e) => Err(Error::new(std::io::ErrorKind::NotConnected, e).into()),
 			Ok((_, _)) => Ok(()),
 		}
 	}
